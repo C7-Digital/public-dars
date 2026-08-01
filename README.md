@@ -16,13 +16,14 @@ points at the newest version.
 | 7LOCK                                | `c7lock/v<ver>`              | `c7lock-latest`               | `c7lock-model[-<ver>].dar`           |
 | Credential (shared library)          | `c7-credential-v1/v<ver>`    | `c7-credential-v1-latest`     | `c7-credential-v1[-<ver>].dar`       |
 | KYC (shared library)                 | `c7-kyc/v<ver>`             | `c7-kyc-latest`               | `c7-kyc[-<ver>].dar`                 |
+| Unlock delegation (shared library)   | `c7-unlock/v<ver>`           | `c7-unlock-latest`            | `c7-unlock[-<ver>].dar`              |
 
 ### Shared model libraries
 
-`c7-credential-v1` and `c7-kyc` are **app-agnostic Daml building blocks**, not
-applications. They are published here so any Canton app can vendor them as
-neutral compiled artifacts and codegen against them, independent of the app
-that happens to build them:
+`c7-credential-v1`, `c7-kyc` and `c7-unlock` are **app-agnostic Daml building
+blocks**, not applications. They are published here so any Canton app can vendor
+them as neutral compiled artifacts and codegen against them, independent of the
+app that happens to build them:
 
 - **`c7-credential-v1`** — the generic `Credential` interface plus the
   `AnyValue` claim union: an issuer-agnostic, typed credential mechanism. This
@@ -34,15 +35,24 @@ that happens to build them:
   allowed-key set) and `KYCAttestation` (typed `AnyValue` claims). Built on
   top of the `c7-credential-v1` DAR. No `-v<major>` — it carries upgradeable
   templates, so version progression rides Daml SCU.
+- **`c7-unlock`** — `AuthorizeUnlock`, a holder-signed, owner-controlled
+  delegation over splice-amulet `LockedAmulet`s. Its `AuthorizeUnlock_Unlock`
+  choice runs with `{holder} ∪ {owner}` authority, which lets the owner exercise
+  `LockedAmulet_UnlockV2` **before expiry** from a single wallet signature — the
+  pre-expiry unlock a CIP-0103 wallet session cannot otherwise perform.
+  `holder` / `owner` / `operator` are plain parties, so it is reusable by any
+  app that locks Amulet, not just the one that builds it.
 
-Both use the `c7-` package-name prefix (the C7 org namespace, mirroring
+All three use the `c7-` package-name prefix (the C7 org namespace, mirroring
 `splice-*` in the ecosystem) so the names don't collide with another vendor's
-`credential` / `kyc` DAR on a shared participant — package name is an on-ledger
-SCU resolution key, not just a filename. Both are versioned independently of
-any application (currently **v0.0.1**), so a consumer pins
-`c7-credential-v1/v<ver>` / `c7-kyc/v<ver>` and is unaffected by app release
-cadence. They are produced by the 7Trust (Domain-Verification) build but owned
-as shared infrastructure.
+`credential` / `kyc` / `unlock` DAR on a shared participant — package name is an
+on-ledger SCU resolution key, not just a filename. All three are versioned
+independently of any application, so a consumer pins `c7-credential-v1/v<ver>`,
+`c7-kyc/v<ver>` or `c7-unlock/v<ver>` and is unaffected by app release cadence.
+`c7-credential-v1` and `c7-kyc` are produced by the 7Trust
+(Domain-Verification) build and `c7-unlock` by the 7LOCK build, but all are
+owned as shared infrastructure — a stream only moves when its own DAR changes,
+not when the app that builds it releases.
 
 - The **versioned releases** carry the version in the filename
   (e.g. `domain-verification-model-0.1.0.dar`, `c7-credential-v1-0.0.1.dar`) so
