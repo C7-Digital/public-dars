@@ -6,17 +6,19 @@ Store public DARs that [C7.digital](c7.digital/) creates for applications on Can
 
 This repository is the shared release registry for every C7 Canton Network
 application. Releases are namespaced **per stream** so multiple apps — and the
-shared model libraries they build on — can coexist without tag collisions, and
-every stream additionally has a moving `<stream>-latest` release that always
-points at the newest version.
+shared model libraries they build on — can coexist without tag collisions.
 
-| Stream                               | Versioned tag pattern        | Moving "latest" tag           | DAR asset                            |
-| ------------------------------------ | ---------------------------- | ----------------------------- | ------------------------------------ |
-| 7Trust (Domain-Verification)         | `domain-verification/v<ver>` | `domain-verification-latest`  | `domain-verification-model[-<ver>].dar` |
-| 7LOCK                                | `c7lock/v<ver>`              | `c7lock-latest`               | `c7lock-model[-<ver>].dar`           |
-| Credential (shared library)          | `c7-credential-v1/v<ver>`    | `c7-credential-v1-latest`     | `c7-credential-v1[-<ver>].dar`       |
-| KYC (shared library)                 | `c7-kyc/v<ver>`             | `c7-kyc-latest`               | `c7-kyc[-<ver>].dar`                 |
-| Unlock delegation (shared library)   | `c7-unlock/v<ver>`           | `c7-unlock-latest`            | `c7-unlock[-<ver>].dar`              |
+Every release is immutable and **every asset carries its version in the
+filename**. There is deliberately no moving `<stream>-latest` pointer: see
+[Why there is no "latest"](#why-there-is-no-latest).
+
+| Stream                               | Tag pattern                  | DAR asset                            |
+| ------------------------------------ | ---------------------------- | ------------------------------------ |
+| 7Trust (Domain-Verification)         | `domain-verification/v<ver>` | `domain-verification-model-<ver>.dar` |
+| 7LOCK                                | `c7lock/v<ver>`              | `c7lock-model-<ver>.dar`             |
+| Credential (shared library)          | `c7-credential-v1/v<ver>`    | `c7-credential-v1-<ver>.dar`         |
+| KYC (shared library)                 | `c7-kyc/v<ver>`              | `c7-kyc-<ver>.dar`                   |
+| Unlock delegation (shared library)   | `c7-unlock/v<ver>`           | `c7-unlock-<ver>.dar`                |
 
 ### Shared model libraries
 
@@ -54,18 +56,57 @@ independently of any application, so a consumer pins `c7-credential-v1/v<ver>`,
 owned as shared infrastructure — a stream only moves when its own DAR changes,
 not when the app that builds it releases.
 
-- The **versioned releases** carry the version in the filename
+- Every release carries the version in the filename
   (e.g. `domain-verification-model-0.1.0.dar`, `c7-credential-v1-0.0.1.dar`) so
-  each release URL is self-describing and immutable.
-- The **`<stream>-latest` releases** carry the DAR with the *unversioned*
-  filename (e.g. `domain-verification-model.dar`, `c7-credential-v1.dar`) so a fixed
-  download URL always resolves to the newest DAR:
-  `https://github.com/C7-Digital/public-dars/releases/download/<stream>-latest/<asset>.dar`
-  (e.g. `.../download/c7-credential-v1-latest/c7-credential-v1.dar`).
+  each release URL is self-describing and immutable, and so a DAR remains
+  identifiable once it has been downloaded.
 - Releases are published with `make_latest: false`: there is no single
   "latest" across streams, so **do not rely on this repository's
-  `/releases/latest`** — it is not a meaningful pointer here. Always pick the
-  per-stream tag (a `<stream>/v<ver>` pin, or the moving `<stream>-latest`).
+  `/releases/latest`** — it is not a meaningful pointer here. Always pin a
+  `<stream>/v<ver>` tag.
+
+### Why there is no "latest"
+
+Each stream briefly had a moving `<stream>-latest` release whose asset used the
+*unversioned* filename (`c7lock-model.dar`) so that one fixed URL always served
+the newest build. Those releases have been withdrawn.
+
+The stable URL was convenient exactly once — at download time. Afterwards the
+file is indistinguishable from any other build of the same stream: nothing in
+`c7lock-model.dar` says which version it is, a lockfile or vendor script that
+globs `c7lock-model-*.dar` will not match it, and two copies from different
+releases look identical on disk. For artifacts whose whole purpose is to be
+pinned and vendored by downstream consumers, that is the wrong trade.
+
+To track the newest version, resolve it and then pin it:
+
+```bash
+gh release list --repo C7-Digital/public-dars | grep '^7LOCK'
+gh release download c7lock/v0.2.6 --repo C7-Digital/public-dars -p 'c7lock-model-*.dar'
+```
+
+#### The withdrawal, for the record
+
+Five pointer releases existed — `domain-verification-latest`,
+`c7-credential-v1-latest`, `c7-kyc-latest`, `c7lock-latest`,
+`c7-unlock-latest`. They were deleted here, by hand, on 2026-08-02; deleting a
+release removes its assets, so no unversioned DAR is served from this registry
+any more. A release deletion leaves its git tag behind, so the tags go too:
+
+```bash
+git push --delete origin <stream>-latest
+```
+
+Nothing recreates them: the publishing workflows in `C7-Digital/c7lock` and
+`C7-Digital/domain-verification` no longer have the steps that did. That is
+deliberately **not** a recurring cleanup step in those workflows — a one-time
+deletion encoded as a step that runs on every release is a standing delete
+grant on this public registry, long outliving the thing it was meant to undo,
+and it would fire at whenever-the-next-release-happens rather than at a moment
+someone chose.
+
+If you pinned a `<stream>-latest` URL, it now 404s. Resolve and pin a
+`<stream>/v<ver>` tag as above; that URL will not move again.
 
 ## License
 
