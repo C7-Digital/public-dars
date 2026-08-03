@@ -85,6 +85,29 @@ gh release list --repo C7-Digital/public-dars | grep '^7LOCK'
 gh release download c7lock/v0.2.6 --repo C7-Digital/public-dars -p 'c7lock-model-*.dar'
 ```
 
+#### The withdrawal, for the record
+
+Five pointer releases existed — `domain-verification-latest`,
+`c7-credential-v1-latest`, `c7-kyc-latest`, `c7lock-latest`,
+`c7-unlock-latest`. They were deleted here, by hand, on 2026-08-02; deleting a
+release removes its assets, so no unversioned DAR is served from this registry
+any more. A release deletion leaves its git tag behind, so the tags go too:
+
+```bash
+git push --delete origin <stream>-latest
+```
+
+Nothing recreates them: the publishing workflows in `C7-Digital/c7lock` and
+`C7-Digital/domain-verification` no longer have the steps that did. That is
+deliberately **not** a recurring cleanup step in those workflows — a one-time
+deletion encoded as a step that runs on every release is a standing delete
+grant on this public registry, long outliving the thing it was meant to undo,
+and it would fire at whenever-the-next-release-happens rather than at a moment
+someone chose.
+
+If you pinned a `<stream>-latest` URL, it now 404s. Resolve and pin a
+`<stream>/v<ver>` tag as above; that URL will not move again.
+
 ## License
 
 [![CC BY-NC 4.0][cc-by-nc-shield]][cc-by-nc]
