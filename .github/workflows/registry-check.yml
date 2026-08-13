@@ -1,19 +1,21 @@
 name: Registry check
 
-# Fails when the map and the territory disagree — a stream published without
-# being declared in dars.toml, a dangling depends_on, or a generated artifact
-# (the README's stream table) that someone edited by hand or forgot to refresh.
+# Two gates, both read-only:
+#   cue vet      — dars.cue's own shape (required/unknown keys, types, kind,
+#                  app and depends_on targets)
+#   cue cmd check — the map against the territory: a stream published without
+#                  being declared, an unparsable version tag, or a stale
+#                  generated block in README.md
 #
-# Read-only: it never writes to the repo and never touches a release. It runs on
-# a schedule as well as on PRs because the territory moves without us — a
-# producer repo can publish a release at any time, and this is what notices.
+# Runs on a schedule as well as on PRs because the territory moves without us —
+# a producer repo can publish a release at any time, and this is what notices.
 
 on:
   pull_request:
   push:
     branches: [main]
   schedule:
-    - cron: "17 7 * * *" # daily, offset off the hour
+    - cron: "17 7 * * *"
   workflow_dispatch:
 
 permissions:
@@ -24,12 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: cue-lang/setup-cue@v1.0.1
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12" # tomllib needs >= 3.11
+      # `-c` is load-bearing: without it CUE leaves the referential-integrity
+      # checks in checks.cue unevaluated and vet passes on a manifest that
+      # names an app or a dependency which does not exist.
+      - name: Validate dars.cue
+        run: cue vet -c schema.cue dars.cue checks.cue
 
-      - name: Check registry consistency
-        run: python3 tools/registry.py check
+      - name: Check the map against the territory
+        run: cue cmd check
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
