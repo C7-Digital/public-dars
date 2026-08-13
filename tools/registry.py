@@ -3,7 +3,7 @@
 
 Three subcommands:
 
-    generate   join dars.toml with the live Releases API -> README block + index.json
+    generate   join dars.toml with the live Releases API -> the README table
     check      fail if the map and the territory disagree (CI gate)
     verify     confirm a .dar file is what its release claims it is
 
@@ -33,7 +33,6 @@ import darmeta  # noqa: E402
 REPO = "C7-Digital/public-dars"
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "dars.toml"
-INDEX = ROOT / "index.json"
 README = ROOT / "README.md"
 
 BEGIN = "<!-- BEGIN GENERATED — edit dars.toml, not this block -->"
@@ -159,11 +158,10 @@ def splice_readme(block: str) -> str:
 def cmd_generate(_args) -> int:
     manifest = load_manifest()
     index, undeclared = build_index(manifest, releases())
-    INDEX.write_text(json.dumps(index, indent=2) + "\n")
     README.write_text(splice_readme(render(manifest, index)))
     for tag in undeclared:
         print(f"::warning::released but not declared in dars.toml: {tag}", file=sys.stderr)
-    print(f"wrote {INDEX.name} and README.md ({len(index['streams'])} streams)")
+    print(f"wrote README.md ({len(index['streams'])} streams)")
     return 0
 
 
@@ -191,11 +189,8 @@ def cmd_check(_args) -> int:
                   file=sys.stderr)
             problems += 1
 
-    # The generated artifacts must already be up to date, so a stale README can
+    # The generated table must already be up to date, so a stale README can
     # never be merged.
-    if INDEX.exists() and json.loads(INDEX.read_text()) != index:
-        print("::error::index.json is stale — run `tools/registry.py generate`.", file=sys.stderr)
-        problems += 1
     if README.exists() and splice_readme(render(manifest, index)) != README.read_text():
         print("::error::README.md's generated block is stale — run "
               "`tools/registry.py generate`.", file=sys.stderr)
@@ -232,7 +227,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("generate", help="regenerate README block + index.json")
+    sub.add_parser("generate", help="regenerate the README stream table")
     sub.add_parser("check", help="fail if map and territory disagree")
     v = sub.add_parser("verify", help="confirm a .dar matches its stream")
     v.add_argument("stream")

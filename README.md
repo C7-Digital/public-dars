@@ -141,20 +141,19 @@ If you pinned a `<stream>-latest` URL, it now 404s. Resolve and pin a
 
 ## Consuming a DAR
 
-`index.json` is generated alongside the table above and is the machine-readable
-form of it — resolve a version from there instead of hard-coding one:
+Read the table above, pick a version, and pin its tag in your build:
 
 ```bash
-BASE=https://raw.githubusercontent.com/C7-Digital/public-dars/main
-VER=$(curl -fsSL $BASE/index.json | jq -r '.streams["c7-kyc"].latest')
-URL=$(curl -fsSL $BASE/index.json | jq -r '.streams["c7-kyc"].url')
-curl -fsSLO "$URL"      # then pin $VER in your build
+gh release download c7-kyc/v0.0.1 --repo C7-Digital/public-dars -p '*.dar'
 ```
 
-Each entry carries `app`, `kind`, `package`, `depends_on`, `produced_by`,
-`latest`, every published `versions[]`, and the `tag` / `asset` / `url` for the
-newest. `depends_on` matters: vendoring `c7-kyc` without `c7-credential-v1` will
-not build.
+Then vendor the DAR as a `data-dependency` and codegen against it. Uploading it
+to a participant is a separate, deliberate step — there is no ledger-side
+package feed to point at this registry, so a DAR reaches a node when an operator
+puts it there.
+
+Mind the **Depends on** column: vendoring `c7-kyc` without `c7-credential-v1`
+will not build.
 
 ### Verifying what you downloaded
 
@@ -184,9 +183,9 @@ part of their own release workflow. Two rules:
    saying what the DAR is and who it is for. This is not bureaucracy — a new
    stream is a new public artifact and a support commitment, and the paragraph
    is the only place that ever gets written.
-2. **Never edit README.md's generated block or `index.json`.** Both are derived
-   from `dars.toml` and the Releases API. `tools/registry.py check` fails on a
-   hand-edit or a stale refresh.
+2. **Never edit README.md's generated block.** It is derived from `dars.toml`
+   and the Releases API. `tools/registry.py check` fails on a hand-edit or a
+   stale refresh.
 
 A producer workflow should fail closed rather than publish into an undeclared
 namespace:

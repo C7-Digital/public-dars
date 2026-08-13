@@ -2,7 +2,7 @@ name: Registry check
 
 # Fails when the map and the territory disagree — a stream published without
 # being declared in dars.toml, a dangling depends_on, or a generated artifact
-# (README block / index.json) that someone edited by hand or forgot to refresh.
+# (the README's stream table) that someone edited by hand or forgot to refresh.
 #
 # Read-only: it never writes to the repo and never touches a release. It runs on
 # a schedule as well as on PRs because the territory moves without us — a

@@ -10,9 +10,9 @@
 #
 #     If `gh release list` can answer it, this file must not.
 #
-# README.md's stream table and index.json are GENERATED from this file joined
-# with the live Releases API (`tools/registry.py generate`). Edit this file;
-# never edit the generated block by hand.
+# README.md's stream table is GENERATED from this file joined with the live
+# Releases API (`tools/registry.py generate`). Edit this file; never edit the
+# generated block by hand.
 #
 # Adding a stream here is a deliberate act: a new stream is a new public
 # artifact and a support commitment, so it wants the paragraph below it and a
