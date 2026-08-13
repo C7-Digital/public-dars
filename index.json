@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "repo": "C7-Digital/public-dars",
+  "streams": {
+    "c7-credential-v1": {
+      "app": "general",
+      "kind": "library",
+      "package": "c7-credential-v1",
+      "depends_on": [],
+      "produced_by": "C7-Digital/domain-verification",
+      "summary": "Generic Credential interface plus the AnyValue claim union \u2014 an issuer-agnostic, typed credential mechanism.",
+      "latest": "0.0.1",
+      "versions": [
+        "0.0.1"
+      ],
+      "tag": "c7-credential-v1/v0.0.1",
+      "asset": "c7-credential-v1-0.0.1.dar",
+      "url": "https://github.com/C7-Digital/public-dars/releases/download/c7-credential-v1/v0.0.1/c7-credential-v1-0.0.1.dar"
+    },
+    "c7-kyc": {
+      "app": "general",
+      "kind": "library",
+      "package": "c7-kyc",
+      "depends_on": [
+        "c7-credential-v1"
+      ],
+      "produced_by": "C7-Digital/domain-verification",
+      "summary": "C7 KYC vocabulary (`digital.c7/kyc-*` keys), KYCCertifier delegation and KYCAttestation typed claims.",
+      "latest": "0.0.1",
+      "versions": [
+        "0.0.1"
+      ],
+      "tag": "c7-kyc/v0.0.1",
+      "asset": "c7-kyc-0.0.1.dar",
+      "url": "https://github.com/C7-Digital/public-dars/releases/download/c7-kyc/v0.0.1/c7-kyc-0.0.1.dar"
+    },
+    "c7-lei": {
+      "app": "general",
+      "kind": "library",
+      "package": "c7-lei",
+      "depends_on": [],
+      "produced_by": "C7-Digital/domain-verification",
+      "summary": "GLEIF Legal Entity Identifier records: the LEI template with ISO-17442 MOD 97-10 validation enforced on-ledger.",
+      "latest": null,
+      "versions": [],
+      "tag": null,
+      "asset": null,
+      "url": null
+    },
+    "c7-unlock": {
+      "app": "general",
+      "kind": "library",
+      "package": "c7-unlock",
+      "depends_on": [],
+      "produced_by": "C7-Digital/c7lock",
+      "summary": "AuthorizeUnlock: a holder-signed, owner-controlled delegation over splice-amulet LockedAmulets.",
+      "latest": "0.1.0",
+      "versions": [
+        "0.1.0"
+      ],
+      "tag": "c7-unlock/v0.1.0",
+      "asset": "c7-unlock-0.1.0.dar",
+      "url": "https://github.com/C7-Digital/public-dars/releases/download/c7-unlock/v0.1.0/c7-unlock-0.1.0.dar"
+    },
+    "c7lock": {
+      "app": "7lock",
+      "kind": "app-model",
+      "package": "c7lock-model",
+      "depends_on": [],
+      "produced_by": "C7-Digital/c7lock",
+      "summary": "The on-ledger model behind 7LOCK: the loan lifecycle, self-locks, custody and unlocking agreements.",
+      "latest": "0.2.6",
+      "versions": [
+        "0.2.6",
+        "0.2.5",
+        "0.2.4",
+        "0.2.3",
+        "0.2.2",
+        "0.2.1",
+        "0.2.0",
+        "0.1.6",
+        "0.1.5",
+        "0.1.4"
+      ],
+      "tag": "c7lock/v0.2.6",
+      "asset": "c7lock-model-0.2.6.dar",
+      "url": "https://github.com/C7-Digital/public-dars/releases/download/c7lock/v0.2.6/c7lock-model-0.2.6.dar"
+    },
+    "domain-verification": {
+      "app": "7trust",
+      "kind": "app-model",
+      "package": "domain-verification-model",
+      "depends_on": [],
+      "produced_by": "C7-Digital/domain-verification",
+      "summary": "The on-ledger model behind 7Trust: verification requests, DomainOwnershipToken, AddressBook, TermsOfService.",
+      "latest": "0.1.0",
+      "versions": [
+        "0.1.0",
+        "0.0.7",
+        "0.0.6",
+        "0.0.5",
+        "0.0.4"
+      ],
+      "tag": "domain-verification/v0.1.0",
+      "asset": "domain-verification-model-0.1.0.dar",
+      "url": "https://github.com/C7-Digital/public-dars/releases/download/domain-verification/v0.1.0/domain-verification-model-0.1.0.dar"
+    }
+  }
+}

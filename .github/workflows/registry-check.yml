@@ -1,0 +1,35 @@
+name: Registry check
+
+# Fails when the map and the territory disagree — a stream published without
+# being declared in dars.toml, a dangling depends_on, or a generated artifact
+# (README block / index.json) that someone edited by hand or forgot to refresh.
+#
+# Read-only: it never writes to the repo and never touches a release. It runs on
+# a schedule as well as on PRs because the territory moves without us — a
+# producer repo can publish a release at any time, and this is what notices.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 7 * * *" # daily, offset off the hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # tomllib needs >= 3.11
+
+      - name: Check registry consistency
+        run: python3 tools/registry.py check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

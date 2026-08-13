@@ -1,0 +1,111 @@
+# dars.toml — what the GitHub Releases API cannot tell you.
+#
+# This file carries STREAM-level semantics only: what a DAR *is*, who it is
+# for, what it depends on. Those facts change when a stream is BORN — six times
+# in this registry's life so far — not when one releases.
+#
+# It deliberately records NO versions, dates, URLs or asset names. Every one of
+# those is already authoritative in the GitHub Releases API, and a second copy
+# here would be a copy that goes stale. That is the whole design rule:
+#
+#     If `gh release list` can answer it, this file must not.
+#
+# README.md's stream table and index.json are GENERATED from this file joined
+# with the live Releases API (`tools/registry.py generate`). Edit this file;
+# never edit the generated block by hand.
+#
+# Adding a stream here is a deliberate act: a new stream is a new public
+# artifact and a support commitment, so it wants the paragraph below it and a
+# human review. `tools/registry.py check` fails if a stream is published
+# without being declared here.
+
+schema = 1
+
+# ── Applications ────────────────────────────────────────────────────────────
+# The products a DAR can belong to. `general` is the escape hatch the registry
+# actually needs: c7-kyc is used by ARTEX, but describing it as "the ARTEX KYC
+# DAR" would be wrong — it is app-agnostic and predates that use.
+
+[apps.7trust]
+name = "7Trust"
+description = "Domain ownership verification on Canton"
+repo = "C7-Digital/domain-verification"
+
+[apps.7lock]
+name = "7LOCK"
+description = "Canton Coin lending marketplace"
+repo = "C7-Digital/c7lock"
+
+[apps.general]
+name = "General"
+description = "App-agnostic Daml building blocks. Usable by any Canton app, C7 or otherwise."
+
+# ── Streams ─────────────────────────────────────────────────────────────────
+# `id` is the release-tag namespace: tags are `<id>/v<version>`.
+# `package` is the Daml package NAME — the SCU resolution key on-ledger, and
+# the reason the `c7-` prefix exists. It is NOT the filename.
+
+[streams.domain-verification]
+app = "7trust"
+kind = "app-model"
+package = "domain-verification-model"
+produced_by = "C7-Digital/domain-verification"
+summary = "The on-ledger model behind 7Trust: verification requests, DomainOwnershipToken, AddressBook, TermsOfService."
+
+[streams.c7lock]
+app = "7lock"
+kind = "app-model"
+package = "c7lock-model"
+produced_by = "C7-Digital/c7lock"
+summary = "The on-ledger model behind 7LOCK: the loan lifecycle, self-locks, custody and unlocking agreements."
+
+[streams.c7-credential-v1]
+app = "general"
+kind = "library"
+package = "c7-credential-v1"
+produced_by = "C7-Digital/domain-verification"
+summary = "Generic Credential interface plus the AnyValue claim union — an issuer-agnostic, typed credential mechanism."
+notes = """
+The `-v1` is the **interface major**, not a version number. A future incompatible
+interface ships as `c7-credential-v2` and coexists on the same participant.
+Positioned as the forward-compatibility surface for a Canton Network
+Credentials Standard.
+"""
+
+[streams.c7-kyc]
+app = "general"
+kind = "library"
+package = "c7-kyc"
+depends_on = ["c7-credential-v1"]
+produced_by = "C7-Digital/domain-verification"
+summary = "C7 KYC vocabulary (`digital.c7/kyc-*` keys), KYCCertifier delegation and KYCAttestation typed claims."
+notes = """
+No `-v<major>`: it carries upgradeable **templates**, so version progression rides
+Daml SCU rather than a new package name. Consumed by ARTEX for its on-ledger
+KYC gate — which is exactly why it is filed under `general` and not `7trust`.
+"""
+
+[streams.c7-lei]
+app = "general"
+kind = "library"
+package = "c7-lei"
+produced_by = "C7-Digital/domain-verification"
+summary = "GLEIF Legal Entity Identifier records: the LEI template with ISO-17442 MOD 97-10 validation enforced on-ledger."
+notes = """
+Structurally self-contained — no cross-DAR references — so it ships on its own
+cadence rather than tracking the 7Trust model.
+"""
+
+[streams.c7-unlock]
+app = "general"
+kind = "library"
+package = "c7-unlock"
+produced_by = "C7-Digital/c7lock"
+summary = "AuthorizeUnlock: a holder-signed, owner-controlled delegation over splice-amulet LockedAmulets."
+notes = """
+`AuthorizeUnlock_Unlock` runs with `{holder} ∪ {owner}` authority, which lets the
+owner exercise `LockedAmulet_UnlockV2` **before** expiry from a single wallet
+signature — the pre-expiry unlock a CIP-0103 wallet session cannot otherwise
+perform. holder/owner/operator are plain parties, so any app that locks Amulet
+can use it, not just the one that builds it.
+"""
