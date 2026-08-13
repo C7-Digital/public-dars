@@ -19,6 +19,11 @@
 # human review. `tools/registry.py check` fails if a stream is published
 # without being declared here.
 
+# TOML carries no schema of its own, so this file's shape is declared and
+# enforced in `tools/registry.py` — see KINDS / APP_FIELDS / STREAM_FIELDS and
+# `validate_manifest`. Required keys, unknown keys (a typo'd `pakcage` is an
+# error, not a shrug), types, `kind`, `app` and `depends_on` are all checked
+# before anything is generated, and `registry-check.yml` runs it on every PR.
 schema = 1
 
 # ── Applications ────────────────────────────────────────────────────────────

@@ -38,11 +38,90 @@ README = ROOT / "README.md"
 BEGIN = "<!-- BEGIN GENERATED — edit dars.toml, not this block -->"
 END = "<!-- END GENERATED -->"
 
+# ── the schema, stated rather than implied ──────────────────────────────────
+# TOML has no schema of its own, so dars.toml's shape would otherwise live only
+# in whatever this file happens to subscript. Declared here so it is readable in
+# one place and enforced in one place; `validate_manifest` is the only thing
+# that gets to decide a manifest is well-formed, and both `generate` and `check`
+# go through it.
+
+KINDS = ("app-model", "library")  # every kind must have a table in `render`
+
+APP_FIELDS = {
+    "required": {"name": str, "description": str},
+    "optional": {"repo": str},
+}
+
+STREAM_FIELDS = {
+    "required": {"app": str, "kind": str, "package": str,
+                 "produced_by": str, "summary": str},
+    "optional": {"depends_on": list, "notes": str},
+}
+
+
+def _check_table(where: str, table: dict, spec: dict, problems: list[str]) -> None:
+    """Required keys present, no unknown keys, right types. Unknown keys are an
+    error rather than a shrug: a typo'd `pakcage` would otherwise be silently
+    dropped and then explode as a KeyError somewhere unhelpful."""
+    allowed = {**spec["required"], **spec["optional"]}
+    for key, ty in spec["required"].items():
+        if key not in table:
+            problems.append(f"{where}: missing required key `{key}`")
+    for key, value in table.items():
+        if key not in allowed:
+            problems.append(f"{where}: unknown key `{key}`")
+        elif not isinstance(value, allowed[key]):
+            problems.append(f"{where}: `{key}` should be "
+                            f"{allowed[key].__name__}, got {type(value).__name__}")
+
+
+def validate_manifest(manifest: dict) -> list[str]:
+    """Everything wrong with this manifest, as human sentences."""
+    problems: list[str] = []
+
+    for key in ("schema", "apps", "streams"):
+        if key not in manifest:
+            problems.append(f"dars.toml: missing top-level `{key}`")
+    if problems:
+        return problems
+    if manifest["schema"] != 1:
+        problems.append(f"dars.toml: unsupported schema {manifest['schema']!r}; this tool reads 1")
+
+    for aid, app in manifest["apps"].items():
+        _check_table(f"apps.{aid}", app, APP_FIELDS, problems)
+
+    for sid, s in manifest["streams"].items():
+        where = f"streams.{sid}"
+        _check_table(where, s, STREAM_FIELDS, problems)
+        if s.get("kind") not in KINDS:
+            # The one that silently loses a stream: `render` only emits a table
+            # per known kind, so an unrecognised kind drops the row while every
+            # other check stays green.
+            problems.append(f"{where}: kind `{s.get('kind')}` is not one of {list(KINDS)}")
+        if s.get("app") not in manifest["apps"]:
+            problems.append(f"{where}: app `{s.get('app')}` is not defined under [apps.*]")
+        for dep in s.get("depends_on", []):
+            if not isinstance(dep, str):
+                problems.append(f"{where}: depends_on entries must be strings")
+            elif dep not in manifest["streams"]:
+                problems.append(f"{where}: depends_on `{dep}` is not a stream")
+            elif dep == sid:
+                problems.append(f"{where}: depends_on itself")
+    return problems
+
 
 # ── inputs ──────────────────────────────────────────────────────────────────
 
 def load_manifest() -> dict:
-    return tomllib.loads(MANIFEST.read_text())
+    """Parse and validate. Nothing downstream may see an unvalidated manifest —
+    that is what keeps the schema from being 'whatever the code subscripts'."""
+    manifest = tomllib.loads(MANIFEST.read_text())
+    problems = validate_manifest(manifest)
+    if problems:
+        for p in problems:
+            print(f"::error::{p}", file=sys.stderr)
+        raise SystemExit(f"dars.toml is invalid ({len(problems)} problem(s))")
+    return manifest
 
 
 def releases() -> list[dict]:
@@ -115,6 +194,7 @@ def build_index(manifest: dict, rels: list[dict]) -> tuple[dict, list[str]]:
 def render(manifest: dict, index: dict) -> str:
     apps = manifest["apps"]
     lines = [BEGIN, ""]
+    tabled = 0
     for kind, heading in (("app-model", "Application models"),
                           ("library", "Shared libraries")):
         rows = [(sid, e) for sid, e in index["streams"].items() if e["kind"] == kind]
@@ -130,7 +210,20 @@ def render(manifest: dict, index: dict) -> str:
             producer = e["produced_by"].split("/")[-1]
             lines.append(f"| `{sid}` | {apps[e['app']]['name']} | {latest} | {tag} "
                          f"| `{e['package']}` | {deps} | `{producer}` |")
+            tabled += 1
         lines.append("")
+
+    # Every stream must reach exactly one table. Validation already rejects an
+    # unknown `kind`, so this cannot fire today — it is here for the next person
+    # who adds a third kind to KINDS and forgets to give it a heading above,
+    # which would otherwise drop those streams from the table while every other
+    # check stayed green.
+    if tabled != len(index["streams"]):
+        missing = sorted(set(index["streams"]) - {
+            sid for sid, e in index["streams"].items() if e["kind"] in KINDS})
+        raise SystemExit(
+            f"render covered {tabled} of {len(index['streams'])} streams; "
+            f"no table for: {', '.join(missing) or '(unknown)'}")
 
     lines += ["#### What each stream is", ""]
     for sid, s in sorted(manifest["streams"].items()):
@@ -176,18 +269,13 @@ def cmd_check(_args) -> int:
               f"Add it there (with a summary) before releasing.", file=sys.stderr)
         problems += 1
 
+    # dars.toml's own shape (required keys, unknown keys, types, `kind`, `app`,
+    # `depends_on`) was already enforced by load_manifest -> validate_manifest,
+    # which exits before we get here. What is left is the part that needs the
+    # live API: does the map match the territory.
     for sid, e in index["streams"].items():
         if not e["latest"]:
             print(f"::notice::`{sid}` is declared but has never been released.", file=sys.stderr)
-        for dep in e["depends_on"]:
-            if dep not in index["streams"]:
-                print(f"::error::`{sid}` declares depends_on `{dep}`, which is not a stream.",
-                      file=sys.stderr)
-                problems += 1
-        if e["app"] not in manifest["apps"]:
-            print(f"::error::`{sid}` declares app `{e['app']}`, which is not defined.",
-                  file=sys.stderr)
-            problems += 1
 
     # The generated table must already be up to date, so a stale README can
     # never be merged.
