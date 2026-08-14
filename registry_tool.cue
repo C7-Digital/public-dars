@@ -7,6 +7,29 @@
 // Everything here is CUE: the Releases API is fetched with tool/http, the table
 // is built by string interpolation, and README.md is spliced with tool/file. No
 // other runtime is involved.
+//
+// Two idioms recur below and are worth recognising rather than re-deriving:
+//
+//   [ if cond {a}, b ][0]
+//     CUE has no if/else expression, so this is the documented "switch"
+//     pattern: build a list whose first element exists only when the condition
+//     holds, then take [0]. The trailing element is the default, and omitting
+//     it turns a missed case into "index out of range".
+//
+//     The sharp edge: there is NO short-circuiting — every branch is evaluated
+//     whether or not it is selected. So a branch must never be an expression
+//     that can fail on the input the other branch exists to handle. That is why
+//     `generate`'s `_tail` is written to be total instead of indexing [1]
+//     directly; indexing there aborted evaluation before the marker guard could
+//     report anything useful.
+//
+//     (CUE v0.16 added real `else`/`fallback` clauses, but only under
+//     `@experiment(try)`. Not worth an experiment flag in a public repo yet.)
+//
+//   depends_on: [...string] | *[]      — in schema.cue
+//     A `*` default, so the field is always present and every reader can just
+//     iterate it. Preferred over an optional field plus a conditional at each
+//     use site: the fallback is stated once, where the shape is defined.
 package dars
 
 import (
@@ -66,17 +89,16 @@ _end:   "<!-- END GENERATED -->"
 #Row: {
 	sid: string, s: #Stream, versions: [...string]
 	_latest: [ if len(versions) > 0 {versions[0]}, ""][0]
-	_deps: [ for d in [ if s.depends_on != _|_ {s.depends_on}, []][0] {"`\(d)`"}]
-	out: strings.Join([
-		"", "`\(sid)`",
+	_deps: [ for d in s.depends_on {"`\(d)`"}]
+	out: "| " + strings.Join([
+		"`\(sid)`",
 		apps[s.app].name,
 		[ if _latest != "" {"`\(_latest)`"}, "_unreleased_"][0],
 		[ if _latest != "" {"`\(sid)/v\(_latest)`"}, "—"][0],
 		"`\(s.package)`",
 		[ if len(_deps) > 0 {strings.Join(_deps, ", ")}, "—"][0],
 		"`\(strings.Split(s.produced_by, "/")[1])`",
-		"",
-	], " | ")
+	], " | ") + " |"
 }
 
 #Table: {
@@ -97,8 +119,8 @@ _end:   "<!-- END GENERATED -->"
 		let s = streams[sid]
 		list.Concat([
 			["**`\(sid)`** — \(s.summary)", ""],
-			[ if s.notes != _|_ {strings.TrimSpace(s.notes)}],
-			[ if s.notes != _|_ {""}],
+			[ if s.notes != "" {strings.TrimSpace(s.notes)}],
+			[ if s.notes != "" {""}],
 		])
 	}]),
 ]), "\n")
@@ -249,5 +271,45 @@ command: verify: {
 		$after: report
 		cmd: ["sh", "-c", [ if _ok {"exit 0"},
 			"echo '::error::\(env.DAR): package is `\(_pkg)`, expected `\(_want)`' >&2; exit 1"][0]]
+	}
+}
+
+// `cue cmd selftest` — proves the validation actually fires.
+//
+// The constraints in checks.cue only run because they are REGULAR fields. CUE
+// does not evaluate hidden fields (`_foo`) at all, so writing them the natural
+// way — as internals, since that is what they look like — makes them silently
+// dead: vet then passes on a manifest naming an app that does not exist. That
+// is a validator failing OPEN, the one failure this repo cannot tolerate, and
+// nothing in the source shows it. Renaming `appExists` to `_appExists` is a
+// one-character tidy-up that would do it.
+//
+// So each fixture under testdata/ is a manifest with exactly one defect, and
+// this asserts vet REJECTS it. `good.cue` is the positive control: if it ever
+// fails, the rest prove nothing, because a setup where everything errors would
+// satisfy a suite that only looks for errors.
+command: selftest: {
+	_bad: ["bad-kind", "bad-app", "bad-dep", "bad-unknown-key"]
+
+	control: exec.Run & {
+		cmd: ["sh", "-c", "cue vet -c schema.cue testdata/good.cue checks.cue"]
+	}
+
+	for name in _bad {
+		(name): exec.Run & {
+			$after: control
+			// `!` inverts: the fixture MUST fail to vet.
+			cmd: ["sh", "-c", """
+				if cue vet -c schema.cue testdata/\(name).cue checks.cue >/dev/null 2>&1; then
+				  echo '::error::testdata/\(name).cue vetted clean — that check is not firing' >&2
+				  exit 1
+				fi
+				"""]
+		}
+	}
+
+	done: cli.Print & {
+		$after: control
+		text:   "selftest: 1 control + \(len(_bad)) rejection fixtures"
 	}
 }

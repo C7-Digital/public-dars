@@ -28,11 +28,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: cue-lang/setup-cue@v1.0.1
 
-      # `-c` is load-bearing: without it CUE leaves the referential-integrity
-      # checks in checks.cue unevaluated and vet passes on a manifest that
-      # names an app or a dependency which does not exist.
       - name: Validate dars.cue
         run: cue vet -c schema.cue dars.cue checks.cue
+
+      # Proves the validation above actually fires. checks.cue's rules only run
+      # because they are regular fields — CUE skips hidden ones — so a rename to
+      # `_appExists` would switch them off with nothing to show for it.
+      - name: Prove the checks fire
+        run: cue cmd selftest
 
       - name: Check the map against the territory
         run: cue cmd check

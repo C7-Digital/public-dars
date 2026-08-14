@@ -25,9 +25,11 @@ package dars
 	produced_by: #Repo
 	summary:     string & !=""
 
-	// Other streams this DAR data-depends on.
-	depends_on?: [...string]
-	notes?: string
+	// Other streams this DAR data-depends on. Defaulted rather than optional so
+	// every use site can just iterate it — `*` puts the fallback in the schema
+	// once instead of repeating a conditional at each reader.
+	depends_on: [...string] | *[]
+	notes:      string | *""
 }
 
 schema: 1

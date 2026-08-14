@@ -20,17 +20,17 @@ Tags are `<stream>/v<version>`; every asset is `<daml-package>-<version>.dar`.
 
 | Stream | Supports | Latest | Tag to pin | Daml package | Depends on | Produced by |
 | ------ | -------- | ------ | ---------- | ------------ | ---------- | ----------- |
- | `c7lock` | 7LOCK | `0.2.6` | `c7lock/v0.2.6` | `c7lock-model` | — | `c7lock` | 
- | `domain-verification` | 7Trust | `0.1.0` | `domain-verification/v0.1.0` | `domain-verification-model` | — | `domain-verification` | 
+| `c7lock` | 7LOCK | `0.2.6` | `c7lock/v0.2.6` | `c7lock-model` | — | `c7lock` |
+| `domain-verification` | 7Trust | `0.1.0` | `domain-verification/v0.1.0` | `domain-verification-model` | — | `domain-verification` |
 
 #### Shared libraries
 
 | Stream | Supports | Latest | Tag to pin | Daml package | Depends on | Produced by |
 | ------ | -------- | ------ | ---------- | ------------ | ---------- | ----------- |
- | `c7-credential-v1` | General | `0.0.1` | `c7-credential-v1/v0.0.1` | `c7-credential-v1` | — | `domain-verification` | 
- | `c7-kyc` | General | `0.0.1` | `c7-kyc/v0.0.1` | `c7-kyc` | `c7-credential-v1` | `domain-verification` | 
- | `c7-lei` | General | _unreleased_ | — | `c7-lei` | — | `domain-verification` | 
- | `c7-unlock` | General | `0.1.0` | `c7-unlock/v0.1.0` | `c7-unlock` | — | `c7lock` | 
+| `c7-credential-v1` | General | `0.0.1` | `c7-credential-v1/v0.0.1` | `c7-credential-v1` | — | `domain-verification` |
+| `c7-kyc` | General | `0.0.1` | `c7-kyc/v0.0.1` | `c7-kyc` | `c7-credential-v1` | `domain-verification` |
+| `c7-lei` | General | _unreleased_ | — | `c7-lei` | — | `domain-verification` |
+| `c7-unlock` | General | `0.1.0` | `c7-unlock/v0.1.0` | `c7-unlock` | — | `c7lock` |
 
 #### What each stream is
 
@@ -210,6 +210,7 @@ Everything is CUE; there is no other runtime.
 
 ```bash
 cue vet -c schema.cue dars.cue checks.cue   # is dars.cue well-formed?
+cue cmd selftest                            # do those checks actually fire?
 cue cmd check                               # does the map match the territory?
 cue cmd generate                            # rewrite README.md's table
 ```
@@ -220,12 +221,19 @@ carries the referential-integrity rules — that `app` names a real app and ever
 
 Two things to know before editing them:
 
-- **`-c` is load-bearing.** CUE only evaluates the constraints in `checks.cue`
-  when `vet` is asked for concrete values. Without `-c` they are skipped and vet
-  passes on a manifest naming an app that does not exist.
-- **`checks.cue` is deliberately excluded from `cue export`.** Its constraints
-  have to be ordinary fields to be evaluated, and ordinary fields would
-  otherwise show up as spurious keys in exported data.
+- **`checks.cue`'s rules must stay regular fields.** CUE does not evaluate
+  hidden fields (`_foo`) at all. `appExists` and `depsExist` look like
+  internals, and renaming them to `_appExists` / `_depsExist` is a one-character
+  "tidy-up" that does not tidy them — it switches them off, and vet then passes
+  on a manifest naming an app that does not exist.
+- **`checks.cue` is therefore excluded from `cue export`.** Being regular fields
+  is what makes them run, and regular fields would otherwise appear as spurious
+  keys in exported data. So `vet` reads three files and `export` reads two.
+- **`cue cmd selftest` exists because of the two points above.** A validator
+  that fails open looks identical to one that works, so each fixture in
+  `testdata/` carries exactly one defect and the suite asserts vet *rejects* it.
+  `testdata/good.cue` is the positive control — without it, a setup where
+  everything errored would satisfy a suite that only looks for errors.
 
 Nothing outside this repository writes its documentation: producers push an
 artifact, and this repo regenerates its own map from what it finds
