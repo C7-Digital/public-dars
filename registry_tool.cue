@@ -72,10 +72,17 @@ _end:   "<!-- END GENERATED -->"
 	sid: string, s: #Stream, versions: [...string]
 	_latest: [ if len(versions) > 0 {versions[0]}, ""][0]
 	_deps: [ for d in s.depends_on {"`\(d)`"}]
+	// The version cell IS the download link, so the first question a reader has
+	// ("where do I get it?") is answered without scrolling. It is a versioned,
+	// immutable URL — regenerating points it at the newest release, but no
+	// published URL ever changes what it serves. That is the distinction from
+	// the withdrawn `<stream>-latest` pointers.
+	_url: "https://github.com/\(_repo)/releases/download/\(sid)/v\(_latest)/\(s.package)-\(_latest).dar"
+
 	out: "| " + strings.Join([
 		"`\(sid)`",
 		apps[s.app].name,
-		[ if _latest != "" {"`\(_latest)`"}, "_unreleased_"][0],
+		[ if _latest != "" {"[`\(_latest)`](\(_url))"}, "_unreleased_"][0],
 		[ if _latest != "" {"`\(sid)/v\(_latest)`"}, "—"][0],
 		"`\(s.package)`",
 		[ if len(_deps) > 0 {strings.Join(_deps, ", ")}, "—"][0],
