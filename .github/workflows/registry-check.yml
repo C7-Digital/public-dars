@@ -29,9 +29,9 @@ jobs:
       - uses: cue-lang/setup-cue@v1.0.1
 
       - name: Validate dars.cue
-        run: cue vet -c schema.cue dars.cue checks.cue
+        run: cue vet -c schema.cue dars.cue
 
-      # Proves the validation above actually fires. checks.cue's rules only run
+      # Proves the validation above actually fires. schema.cue's rules only run
       # because they are regular fields — CUE skips hidden ones — so a rename to
       # `_appExists` would switch them off with nothing to show for it.
       - name: Prove the checks fire

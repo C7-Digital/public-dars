@@ -1,7 +1,7 @@
-// The shape of dars.cue, stated once and enforced by `cue vet`.
+// The shape of dars.cue, plus the rules a per-field schema cannot express.
 //
-// Definitions (#Foo) are closed: an unknown field is an error with no extra
-// work, which is one of the two hand-rolled halves of the Python validator.
+// Kept out of dars.cue so `cue cmd selftest` can vet a fixture against it —
+// see testdata/.
 package dars
 
 #Repo: =~"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$"
@@ -13,21 +13,15 @@ package dars
 }
 
 #Stream: {
-	// Which product this DAR serves. Must be a key of `apps` — enforced below.
-	app: string & !=""
-
-	// Every kind needs a matching table in registry.py's `render`.
-	kind: "app-model" | "library"
-
+	app:  string & !=""     // must be a key of `apps` — see appExists below
+	kind: "app-model" | "library" // each kind needs a table in registry_tool.cue
 	// The Daml package NAME: the SCU resolution key on-ledger, not the filename.
-	package: =~"^[a-z][a-z0-9-]*[a-z0-9]$"
-
+	package:     =~"^[a-z][a-z0-9-]*[a-z0-9]$"
 	produced_by: #Repo
 	summary:     string & !=""
 
-	// Other streams this DAR data-depends on. Defaulted rather than optional so
-	// every use site can just iterate it — `*` puts the fallback in the schema
-	// once instead of repeating a conditional at each reader.
+	// Defaulted, not optional, so readers can just iterate/compare instead of
+	// repeating a conditional at every use site.
 	depends_on: [...string] | *[]
 	notes:      string | *""
 }
@@ -35,3 +29,20 @@ package dars
 schema: 1
 apps: [string]:    #App
 streams: [string]: #Stream
+
+// ── Referential integrity ───────────────────────────────────────────────────
+// That a string names something that exists. CUE reports a missing key as
+// "field not found", carrying the offending path.
+//
+// DO NOT rename these to `_appExists` / `_depsExist`. They look like internals,
+// but CUE does not evaluate hidden fields — hiding them does not tidy them, it
+// switches them off, and vet then passes on a manifest naming an app or a
+// dependency that does not exist. `cue cmd selftest` fails if that happens.
+
+appExists: {
+	for sid, s in streams {(sid): apps[s.app].name}
+}
+
+depsExist: {
+	for sid, s in streams for _, d in s.depends_on {"\(sid)->\(d)": streams[d].package}
+}

@@ -1,4 +1,5 @@
-// `depends_on` naming a stream that does not exist. Same as above: checks.cue + -c.
+// `depends_on` naming a stream that does not exist. Caught only by
+// schema.cue's `depsExist` rule.
 package dars
 
 schema: 1

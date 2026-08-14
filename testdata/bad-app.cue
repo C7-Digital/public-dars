@@ -1,5 +1,5 @@
-// `app` naming an app that does not exist. Only caught by checks.cue, and only
-// when vet is run with -c.
+// `app` naming an app that does not exist. Caught only by schema.cue's
+// `appExists` rule, which is the thing selftest exists to prove still runs.
 package dars
 
 schema: 1

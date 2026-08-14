@@ -209,35 +209,36 @@ cue eval -e "streams[\"${STREAM}\"].package" dars.cue \
 Everything is CUE; there is no other runtime.
 
 ```bash
-cue vet -c schema.cue dars.cue checks.cue   # is dars.cue well-formed?
-cue cmd selftest                            # do the referential rules actually fire?
-cue cmd check                               # does the map match the territory?
-cue cmd generate                            # rewrite README.md's table
+cue vet -c schema.cue dars.cue   # is dars.cue well-formed?
+cue cmd selftest                 # do the referential rules actually fire?
+cue cmd check                    # does the map match the territory?
+cue cmd generate                 # rewrite README.md's table
 ```
 
-`schema.cue` declares the shape, `dars.cue` holds the data, and `checks.cue`
-carries the referential-integrity rules — that `app` names a real app and every
-`depends_on` names a real stream.
+`dars.cue` is the data. `schema.cue` is its shape plus the two rules a per-field
+schema cannot express — that `app` names a real app, and that every `depends_on`
+names a real stream. They are separate files only so `selftest` can vet a
+fixture against the schema.
 
-Two things to know before editing them:
+Three things worth knowing before editing:
 
-- **`checks.cue`'s rules must stay regular fields.** CUE does not evaluate
-  hidden fields (`_foo`) at all. `appExists` and `depsExist` look like
-  internals, and renaming them to `_appExists` / `_depsExist` is a one-character
-  "tidy-up" that does not tidy them — it switches them off, and vet then passes
-  on a manifest naming an app that does not exist.
-- **`checks.cue` is therefore excluded from `cue export`.** Being regular fields
-  is what makes them run, and regular fields would otherwise appear as spurious
-  keys in exported data. So `vet` reads three files and `export` reads two.
-- **`cue cmd selftest` covers only what review cannot see.** It does *not* test
-  the schema: that `kind` accepts two values, or that a typo'd field is
-  rejected, is CUE honouring a disjunction and a closed definition — read
-  `schema.cue` and you know. Asserting it would be testing CUE.
-
-  What review cannot see is whether `checks.cue`'s rules *run*, per the point
-  above. So there is one fixture per referential rule, asserting vet **rejects**
-  it, plus `testdata/good.cue` as the positive control — without it, a setup
-  where everything errored would satisfy a suite that only looks for errors.
+- **`schema.cue`'s rules must stay regular fields.** CUE does not evaluate
+  hidden fields (`_foo`) at all, so renaming `appExists` to `_appExists` is a
+  one-character "tidy-up" that does not tidy it — it switches it off, and vet
+  then passes on a manifest naming an app that does not exist.
+- **`selftest` covers only what review cannot see.** It does not test the schema:
+  that `kind` accepts two values, or that a typo'd field is rejected, is CUE
+  honouring a disjunction and a closed definition — read `schema.cue` and you
+  know. What review cannot see is whether the rules *run*, hence one fixture per
+  rule asserting vet **rejects** it, plus `testdata/good.cue` as the positive
+  control. Without the control, a setup where everything errored would satisfy a
+  suite that only looks for errors.
+- **`[ if cond {a}, b ][0]`** is CUE's documented "switch" — there is no if/else
+  expression. The trailing element is the default. Its sharp edge: **no
+  short-circuiting**, every branch evaluates whether selected or not, so a
+  branch must never be an expression that fails on the input the other branch
+  exists to handle. (v0.16 added real `else`/`fallback`, but only under
+  `@experiment(try)` — not worth an experiment flag here yet.)
 
 Nothing outside this repository writes its documentation: producers push an
 artifact, and this repo regenerates its own map from what it finds

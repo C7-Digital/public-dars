@@ -1,35 +1,14 @@
 // `cue cmd` scripts for the registry. Run from the repo root:
 //
-//     cue vet -c schema.cue dars.cue checks.cue    dars.cue's own shape
+//     cue vet -c schema.cue dars.cue    dars.cue's own shape
 //     cue cmd check                                map vs territory
 //     cue cmd generate                             rewrite README.md's table
 //
-// Everything here is CUE: the Releases API is fetched with tool/http, the table
-// is built by string interpolation, and README.md is spliced with tool/file. No
-// other runtime is involved.
+// tool/http fetches the Releases API, tool/file splices README.md, tool/exec
+// shells out for unzip/shasum. No other runtime is involved.
 //
-// Two idioms recur below and are worth recognising rather than re-deriving:
-//
-//   [ if cond {a}, b ][0]
-//     CUE has no if/else expression, so this is the documented "switch"
-//     pattern: build a list whose first element exists only when the condition
-//     holds, then take [0]. The trailing element is the default, and omitting
-//     it turns a missed case into "index out of range".
-//
-//     The sharp edge: there is NO short-circuiting — every branch is evaluated
-//     whether or not it is selected. So a branch must never be an expression
-//     that can fail on the input the other branch exists to handle. That is why
-//     `generate`'s `_tail` is written to be total instead of indexing [1]
-//     directly; indexing there aborted evaluation before the marker guard could
-//     report anything useful.
-//
-//     (CUE v0.16 added real `else`/`fallback` clauses, but only under
-//     `@experiment(try)`. Not worth an experiment flag in a public repo yet.)
-//
-//   depends_on: [...string] | *[]      — in schema.cue
-//     A `*` default, so the field is always present and every reader can just
-//     iterate it. Preferred over an optional field plus a conditional at each
-//     use site: the fallback is stated once, where the shape is defined.
+// `[ if cond {a}, b ][0]` is CUE's switch idiom — see README, "Working on this
+// repo", including the no-short-circuiting trap it carries.
 package dars
 
 import (
@@ -53,8 +32,7 @@ _end:   "<!-- END GENERATED -->"
 
 // ── Turning the API's release list into per-stream versions ─────────────────
 
-// One entry per published release whose tag parses as `<stream>/v<version>`.
-// The tag IS the index: nothing else needs to record which stream a release is.
+// The tag IS the index: nothing else records which stream a release belongs to.
 #Parsed: {
 	raw: [...]
 	out: [ for r in raw if !r.draft && strings.Contains(r.tag_name, "/v") {
@@ -63,9 +41,8 @@ _end:   "<!-- END GENERATED -->"
 	}]
 }
 
-// `0.10.0` must sort above `0.9.0`, so compare numerically, not as text.
-// Three components, each assumed < 1000 — true of every version this registry
-// has published, and `check` reports any tag that does not parse.
+// `0.10.0` must sort above `0.9.0`, so compare numerically. Three components,
+// each assumed < 1000; `check` reports any tag that does not parse.
 #VNum: {
 	v:  string
 	_p: strings.Split(v, ".")
@@ -147,19 +124,18 @@ command: generate: {
 
 	_block: (#Block & {byStream: (#ByStream & {parsed: (#Parsed & {raw: json.Unmarshal(fetch.response.body)}).out}).out}).out
 
-	// Refuse to splice unless the markers appear exactly once each. Without this
-	// a marker that does not match leaves `_head` holding the WHOLE file and the
-	// block is appended rather than replacing anything — the README silently
-	// doubles, keeping a stale table above a fresh one. Learned the hard way
-	// when the inherited README still said `dars.toml`.
+	// A marker that does not match leaves `_head` holding the WHOLE file, so the
+	// block is appended rather than replacing anything and the README silently
+	// doubles. Not hypothetical — it happened when the README still said
+	// `dars.toml`.
 	_markersOK: len(strings.Split(readme.contents, _begin)) == 2 &&
 		len(strings.Split(readme.contents, _end)) == 2
 
 	guard: exec.Run & {cmd: ["sh", "-c", [ if _markersOK {"exit 0"},
 		"echo '::error::README.md needs exactly one BEGIN/END marker pair to splice into' >&2; exit 1"][0]]}
 
-	// Both kept total, so a malformed README fails at `guard` with a sentence
-	// rather than blowing up evaluation with "index out of range".
+	// Total, so a malformed README fails at `guard` with a sentence rather than
+	// blowing up evaluation with "index out of range".
 	_head: strings.Split(readme.contents, _begin)[0]
 	_afterEnd: strings.SplitN(readme.contents, _end, 2)
 	_tail: [ if len(_afterEnd) == 2 {_afterEnd[1]}, ""][0]
@@ -175,15 +151,14 @@ command: check: {
 	_parsed: (#Parsed & {raw: json.Unmarshal(fetch.response.body)}).out
 	_block:  (#Block & {byStream: (#ByStream & {parsed: _parsed}).out}).out
 
-	// Published under a stream nobody declared — the failure this registry exists
-	// to prevent, and the one that put c7-lei in an undocumented namespace.
+	// The failure this registry exists to prevent — and the one that put c7-lei
+	// in an undocumented namespace.
 	_undeclared: list.Sort([ for p in _parsed if streams[p.stream] == _|_ {p.tag}], list.Ascending)
 
 	// A tag whose version is not three numeric components would sort as 0.
 	_unparsable: [ for p in _parsed if !(#VNum & {v: p.version}).ok {p.tag}]
 
-	// The committed block must already match what `generate` would write, so a
-	// stale README can never be merged.
+	// The committed block must match what `generate` would write.
 	_current: strings.SplitN(strings.SplitN(readme.contents, _begin, 2)[1], _end, 2)[0]
 	_wanted:  strings.SplitN(strings.SplitN(_block, _begin, 2)[1], _end, 2)[0]
 	_stale:   _current != _wanted
@@ -204,8 +179,7 @@ command: check: {
 		[ if len(_errors) == 0 {"OK — map matches territory."}],
 	]), "\n")}
 
-	// Exit non-zero when the map is wrong, so CI gates on it — after the report
-	// has printed, so the failure says which stream rather than just failing.
+	// After the report, so a CI failure names the stream instead of just failing.
 	gate: exec.Run & {
 		$after: report
 		cmd: ["sh", "-c", "exit \([ if len(_errors) > 0 {"1"}, "0"][0])"]
@@ -214,13 +188,10 @@ command: check: {
 
 // `STREAM=c7lock DAR=path/to.dar cue cmd verify`
 //
-// Confirms a .dar is what its stream claims. A DAR states its own identity in
-// META-INF/MANIFEST.MF, so nothing has to trust the filename: package name,
-// version, SDK version and the main package id all come out of the archive.
-//
-// The package id matters because SCU resolves upgrades on (package name,
-// version) while the ledger addresses packages by id, which is a content hash —
-// two DARs can share a name and version and still be different bytes.
+// A DAR states its own identity in META-INF/MANIFEST.MF, so nothing has to
+// trust the filename. The package id matters because SCU resolves upgrades on
+// (package name, version) while the ledger addresses packages by id, a content
+// hash — two DARs can share a name and version and still be different bytes.
 command: verify: {
 	env: os.Getenv & {STREAM: string, DAR: string}
 
@@ -235,8 +206,7 @@ command: verify: {
 		stdout: string
 	}
 
-	// JAR manifests wrap at 72 columns and continue with a leading space, so
-	// unfolding is exactly this one replace.
+	// JAR manifests wrap at 72 columns, continuing with a leading space.
 	_lines: strings.Split(strings.Replace(manifest.stdout, "\n ", "", -1), "\n")
 	_get: {k: string, out: [ for l in _lines if strings.HasPrefix(l, k+": ") {strings.TrimSpace(strings.TrimPrefix(l, k+": "))}, ""][0]}
 
@@ -244,8 +214,8 @@ command: verify: {
 	_sdk:     (_get & {k: "Sdk-Version"}).out
 	_mainDalf: (_get & {k: "Main-Dalf"}).out
 
-	// Package names contain dashes, so the version is the last dash-delimited
-	// field that starts with a digit — not simply "after the first dash".
+	// Package names contain dashes: the version is the last dash-delimited field
+	// starting with a digit, not simply "after the first dash".
 	_nv: regexp.FindSubmatch("^(.*)-([0-9][^-]*)$", _nameVer)
 	_pkg: _nv[1]
 	_ver: _nv[2]
@@ -276,28 +246,16 @@ command: verify: {
 
 // `cue cmd selftest` — proves the validation actually fires.
 //
-// Scope, deliberately narrow: this covers only what REVIEW CANNOT SEE.
-//
-// The schema's own constraints are not tested here. That `kind` accepts exactly
-// two values, or that a typo'd field name is rejected, is CUE honouring a
-// disjunction and a closed definition — read schema.cue and you know. A fixture
-// asserting it would be testing CUE, not us.
-//
-// What review cannot see is whether checks.cue's rules RUN. They only do
-// because they are regular fields: CUE does not evaluate hidden ones at all, so
-// `_appExists` and `appExists` read identically as intent while one of them
-// silently does nothing. That is a validator failing OPEN — the one failure
-// this repo cannot tolerate — and renaming a field to look like an internal is
-// a one-character tidy-up that causes it.
-//
-// So: one fixture per referential rule, asserting vet REJECTS it. `good.cue` is
-// the positive control — without it a setup where everything errored would
-// satisfy a suite that only looks for errors.
+// Covers only what review cannot see: whether schema.cue's referential rules
+// actually RUN. `_appExists` and `appExists` read identically as intent while
+// one silently does nothing, so one fixture per rule asserts vet REJECTS it.
+// `good.cue` is the positive control — without it, a setup where everything
+// errored would satisfy a suite that only looks for errors. See README.
 command: selftest: {
 	_bad: ["bad-app", "bad-dep"]
 
 	control: exec.Run & {
-		cmd: ["sh", "-c", "cue vet -c schema.cue testdata/good.cue checks.cue"]
+		cmd: ["sh", "-c", "cue vet -c schema.cue testdata/good.cue"]
 	}
 
 	for name in _bad {
@@ -305,7 +263,7 @@ command: selftest: {
 			$after: control
 			// `!` inverts: the fixture MUST fail to vet.
 			cmd: ["sh", "-c", """
-				if cue vet -c schema.cue testdata/\(name).cue checks.cue >/dev/null 2>&1; then
+				if cue vet -c schema.cue testdata/\(name).cue >/dev/null 2>&1; then
 				  echo '::error::testdata/\(name).cue vetted clean — that check is not firing' >&2
 				  exit 1
 				fi
