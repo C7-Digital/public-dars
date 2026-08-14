@@ -31,8 +31,12 @@ apps: [string]:    #App
 streams: [string]: #Stream
 
 // ── Referential integrity ───────────────────────────────────────────────────
-// That a string names something that exists. CUE reports a missing key as
-// "field not found", carrying the offending path.
+// That a string names something that exists. Referencing the key is the whole
+// assertion — CUE reports a missing one as "field not found" with the path.
+//
+// Reference the key itself, never a field of it: selecting `.name` would read
+// as a claim about `name` while asserting nothing #App does not already, and
+// selecting an OPTIONAL field (`.repo`) would reject valid manifests outright.
 //
 // DO NOT rename these to `_appExists` / `_depsExist`. They look like internals,
 // but CUE does not evaluate hidden fields — hiding them does not tidy them, it
@@ -40,9 +44,9 @@ streams: [string]: #Stream
 // dependency that does not exist. `cue cmd selftest` fails if that happens.
 
 appExists: {
-	for sid, s in streams {(sid): apps[s.app].name}
+	for sid, s in streams {(sid): apps[s.app]}
 }
 
 depsExist: {
-	for sid, s in streams for _, d in s.depends_on {"\(sid)->\(d)": streams[d].package}
+	for sid, s in streams for _, d in s.depends_on {"\(sid)->\(d)": streams[d]}
 }
