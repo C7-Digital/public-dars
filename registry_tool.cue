@@ -74,9 +74,9 @@ _end:   "<!-- END GENERATED -->"
 	_deps: [ for d in s.depends_on {"`\(d)`"}]
 	// The version cell IS the download link, so the first question a reader has
 	// ("where do I get it?") is answered without scrolling. It is a versioned,
-	// immutable URL — regenerating moves it to the new newest, but no published
-	// URL ever changes meaning. That is the distinction from the withdrawn
-	// `<stream>-latest` pointers.
+	// immutable URL — regenerating points it at the newest release, but no
+	// published URL ever changes what it serves. That is the distinction from
+	// the withdrawn `<stream>-latest` pointers.
 	_url: "https://github.com/\(_repo)/releases/download/\(sid)/v\(_latest)/\(s.package)-\(_latest).dar"
 
 	out: "| " + strings.Join([
