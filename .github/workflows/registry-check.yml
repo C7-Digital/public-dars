@@ -1,0 +1,47 @@
+name: Registry check
+
+# Two gates, both read-only:
+#   cue vet      — dars.cue's own shape (required/unknown keys, types, kind,
+#                  app and depends_on targets)
+#   cue cmd check — the map against the territory: a stream published without
+#                  being declared, an unparsable version tag, or a stale
+#                  generated block in README.md
+#
+# Runs on a schedule as well as on PRs because the territory moves without us —
+# a producer repo can publish a release at any time, and this is what notices.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cue-lang/setup-cue@v1.0.1
+        with:
+          # Match cue.mod/module.cue's language version. Unpinned, the action's
+          # default drifts and CI starts failing on a day nobody changed anything.
+          version: v0.17.1
+
+      - name: Validate dars.cue
+        run: cue vet -c schema.cue dars.cue
+
+      # Proves the validation above actually fires. schema.cue's rules only run
+      # because they are regular fields — CUE skips hidden ones — so a rename to
+      # `_appExists` would switch them off with nothing to show for it.
+      - name: Prove the checks fire
+        run: cue cmd selftest
+
+      - name: Check the map against the territory
+        run: cue cmd check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
