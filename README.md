@@ -210,7 +210,7 @@ Everything is CUE; there is no other runtime.
 
 ```bash
 cue vet -c schema.cue dars.cue checks.cue   # is dars.cue well-formed?
-cue cmd selftest                            # do those checks actually fire?
+cue cmd selftest                            # do the referential rules actually fire?
 cue cmd check                               # does the map match the territory?
 cue cmd generate                            # rewrite README.md's table
 ```
@@ -229,11 +229,15 @@ Two things to know before editing them:
 - **`checks.cue` is therefore excluded from `cue export`.** Being regular fields
   is what makes them run, and regular fields would otherwise appear as spurious
   keys in exported data. So `vet` reads three files and `export` reads two.
-- **`cue cmd selftest` exists because of the two points above.** A validator
-  that fails open looks identical to one that works, so each fixture in
-  `testdata/` carries exactly one defect and the suite asserts vet *rejects* it.
-  `testdata/good.cue` is the positive control — without it, a setup where
-  everything errored would satisfy a suite that only looks for errors.
+- **`cue cmd selftest` covers only what review cannot see.** It does *not* test
+  the schema: that `kind` accepts two values, or that a typo'd field is
+  rejected, is CUE honouring a disjunction and a closed definition — read
+  `schema.cue` and you know. Asserting it would be testing CUE.
+
+  What review cannot see is whether `checks.cue`'s rules *run*, per the point
+  above. So there is one fixture per referential rule, asserting vet **rejects**
+  it, plus `testdata/good.cue` as the positive control — without it, a setup
+  where everything errored would satisfy a suite that only looks for errors.
 
 Nothing outside this repository writes its documentation: producers push an
 artifact, and this repo regenerates its own map from what it finds

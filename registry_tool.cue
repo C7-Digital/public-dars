@@ -276,20 +276,25 @@ command: verify: {
 
 // `cue cmd selftest` — proves the validation actually fires.
 //
-// The constraints in checks.cue only run because they are REGULAR fields. CUE
-// does not evaluate hidden fields (`_foo`) at all, so writing them the natural
-// way — as internals, since that is what they look like — makes them silently
-// dead: vet then passes on a manifest naming an app that does not exist. That
-// is a validator failing OPEN, the one failure this repo cannot tolerate, and
-// nothing in the source shows it. Renaming `appExists` to `_appExists` is a
-// one-character tidy-up that would do it.
+// Scope, deliberately narrow: this covers only what REVIEW CANNOT SEE.
 //
-// So each fixture under testdata/ is a manifest with exactly one defect, and
-// this asserts vet REJECTS it. `good.cue` is the positive control: if it ever
-// fails, the rest prove nothing, because a setup where everything errors would
+// The schema's own constraints are not tested here. That `kind` accepts exactly
+// two values, or that a typo'd field name is rejected, is CUE honouring a
+// disjunction and a closed definition — read schema.cue and you know. A fixture
+// asserting it would be testing CUE, not us.
+//
+// What review cannot see is whether checks.cue's rules RUN. They only do
+// because they are regular fields: CUE does not evaluate hidden ones at all, so
+// `_appExists` and `appExists` read identically as intent while one of them
+// silently does nothing. That is a validator failing OPEN — the one failure
+// this repo cannot tolerate — and renaming a field to look like an internal is
+// a one-character tidy-up that causes it.
+//
+// So: one fixture per referential rule, asserting vet REJECTS it. `good.cue` is
+// the positive control — without it a setup where everything errored would
 // satisfy a suite that only looks for errors.
 command: selftest: {
-	_bad: ["bad-kind", "bad-app", "bad-dep", "bad-unknown-key"]
+	_bad: ["bad-app", "bad-dep"]
 
 	control: exec.Run & {
 		cmd: ["sh", "-c", "cue vet -c schema.cue testdata/good.cue checks.cue"]
@@ -310,6 +315,6 @@ command: selftest: {
 
 	done: cli.Print & {
 		$after: control
-		text:   "selftest: 1 control + \(len(_bad)) rejection fixtures"
+		text:   "selftest: 1 control + \(len(_bad)) referential rules proven to fire"
 	}
 }
