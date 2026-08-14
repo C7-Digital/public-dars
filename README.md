@@ -234,11 +234,14 @@ Three things worth knowing before editing:
   control. Without the control, a setup where everything errored would satisfy a
   suite that only looks for errors.
 - **`[ if cond {a}, b ][0]`** is CUE's documented "switch" — there is no if/else
-  expression. The trailing element is the default. Its sharp edge: **no
-  short-circuiting**, every branch evaluates whether selected or not, so a
-  branch must never be an expression that fails on the input the other branch
-  exists to handle. (v0.16 added real `else`/`fallback`, but only under
-  `@experiment(try)` — not worth an experiment flag here yet.)
+  expression. The trailing element is the default, and omitting it turns a
+  missed case into "index out of range". An unselected branch is *not*
+  evaluated (checked on v0.17.1 against a failing `Atoi`, an out-of-range index
+  and a missing field), so guarding a partial expression this way is sound —
+  but the guard has to be there. Every crash this repo has had came from an
+  expression with no guard at all, not from a guarded one firing. (v0.16 added
+  real `else`/`fallback`, but only under `@experiment(try)` — not worth an
+  experiment flag here yet.)
 
 Nothing outside this repository writes its documentation: producers push an
 artifact, and this repo regenerates its own map from what it finds

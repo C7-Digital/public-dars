@@ -8,7 +8,8 @@
 // shells out for unzip/shasum. No other runtime is involved.
 //
 // `[ if cond {a}, b ][0]` is CUE's switch idiom — see README, "Working on this
-// repo", including the no-short-circuiting trap it carries.
+// repo". The trailing element is the default; omitting it turns a missed case
+// into "index out of range".
 package dars
 
 import (
@@ -43,10 +44,14 @@ _end:   "<!-- END GENERATED -->"
 
 // `0.10.0` must sort above `0.9.0`, so compare numerically. Three components,
 // each assumed < 1000; `check` reports any tag that does not parse.
+//
+// `ok` matches the digits, not just the dot count. Counting components let
+// `0.0.1-beta` through as parseable, and `strconv.Atoi` then aborted the whole
+// command during sorting instead of `check` listing the tag.
 #VNum: {
-	v:  string
-	_p: strings.Split(v, ".")
-	ok: len(_p) == 3
+	v:   string
+	ok:  v =~ "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+	_p:  strings.Split(v, ".")
 	out: [ if ok {strconv.Atoi(_p[0])*1000000 + strconv.Atoi(_p[1])*1000 + strconv.Atoi(_p[2])}, 0][0]
 }
 
@@ -102,6 +107,21 @@ _end:   "<!-- END GENERATED -->"
 	}]),
 ]), "\n")
 
+// Splitting README.md on the markers, once, so `generate` and `check` cannot
+// disagree about whether it is well-formed. `ok` is false unless each marker
+// appears exactly once; the parts are total so a malformed file reports a
+// sentence instead of "index out of range".
+#Marked: {
+	text: string
+	_b:   strings.Split(text, _begin)
+	_e:   strings.Split(text, _end)
+	ok:   len(_b) == 2 && len(_e) == 2
+	head: _b[0]
+	tail: [ if ok {strings.SplitN(text, _end, 2)[1]}, ""][0]
+	// What currently sits between the markers.
+	inner: [ if ok {strings.SplitN(strings.SplitN(text, _begin, 2)[1], _end, 2)[0]}, ""][0]
+}
+
 // The generated block, computed once so `generate` and `check` cannot disagree
 // about what it should say.
 #Block: {
@@ -124,23 +144,16 @@ command: generate: {
 
 	_block: (#Block & {byStream: (#ByStream & {parsed: (#Parsed & {raw: json.Unmarshal(fetch.response.body)}).out}).out}).out
 
-	// A marker that does not match leaves `_head` holding the WHOLE file, so the
-	// block is appended rather than replacing anything and the README silently
-	// doubles. Not hypothetical — it happened when the README still said
-	// `dars.toml`.
-	_markersOK: len(strings.Split(readme.contents, _begin)) == 2 &&
-		len(strings.Split(readme.contents, _end)) == 2
+	// A marker that does not match leaves `head` holding the WHOLE file, so the
+	// block would be appended rather than replacing anything and the README
+	// silently doubles. Not hypothetical — it happened when the README still
+	// said `dars.toml`.
+	_md: #Marked & {text: readme.contents}
 
-	guard: exec.Run & {cmd: ["sh", "-c", [ if _markersOK {"exit 0"},
+	guard: exec.Run & {cmd: ["sh", "-c", [ if _md.ok {"exit 0"},
 		"echo '::error::README.md needs exactly one BEGIN/END marker pair to splice into' >&2; exit 1"][0]]}
 
-	// Total, so a malformed README fails at `guard` with a sentence rather than
-	// blowing up evaluation with "index out of range".
-	_head: strings.Split(readme.contents, _begin)[0]
-	_afterEnd: strings.SplitN(readme.contents, _end, 2)
-	_tail: [ if len(_afterEnd) == 2 {_afterEnd[1]}, ""][0]
-
-	write: file.Create & {$after: guard, filename: "README.md", contents: _head + _block + _tail}
+	write: file.Create & {$after: guard, filename: "README.md", contents: _md.head + _block + _md.tail}
 	done:  cli.Print & {$after: write, text: "wrote README.md (\(len(streams)) streams)"}
 }
 
@@ -158,14 +171,17 @@ command: check: {
 	// A tag whose version is not three numeric components would sort as 0.
 	_unparsable: [ for p in _parsed if !(#VNum & {v: p.version}).ok {p.tag}]
 
-	// The committed block must match what `generate` would write.
-	_current: strings.SplitN(strings.SplitN(readme.contents, _begin, 2)[1], _end, 2)[0]
-	_wanted:  strings.SplitN(strings.SplitN(_block, _begin, 2)[1], _end, 2)[0]
-	_stale:   _current != _wanted
+	// The committed block must match what `generate` would write. A malformed
+	// README is reported as malformed rather than as "stale", which would send
+	// someone to re-run generate — the one thing that cannot fix it.
+	_md:     #Marked & {text: readme.contents}
+	_wanted: (#Marked & {text: _block}).inner
+	_stale:  _md.ok && _md.inner != _wanted
 
 	_errors: list.Concat([
 		[ for t in _undeclared {"::error::`\(t)` is published but its stream is not declared in dars.cue"}],
 		[ for t in _unparsable {"::error::`\(t)` has a version that is not <major>.<minor>.<patch>"}],
+		[ if !_md.ok {"::error::README.md needs exactly one BEGIN/END marker pair"}],
 		[ if _stale {"::error::README.md's generated block is stale — run `cue cmd generate`"}],
 	])
 
@@ -216,17 +232,21 @@ command: verify: {
 
 	// Package names contain dashes: the version is the last dash-delimited field
 	// starting with a digit, not simply "after the first dash".
-	_nv: regexp.FindSubmatch("^(.*)-([0-9][^-]*)$", _nameVer)
+	// Guarded: a DAR whose manifest is missing or shaped differently must produce
+	// a controlled failure, not "index out of range" from FindSubmatch.
+	_nvOK: _nameVer =~ "^.*-[0-9][^-]*$"
+	_nv: [ if _nvOK {regexp.FindSubmatch("^(.*)-([0-9][^-]*)$", _nameVer)}, ["", "", ""]][0]
 	_pkg: _nv[1]
 	_ver: _nv[2]
 
-	_idm: regexp.FindSubmatch("-([0-9a-f]{64})\\.dalf$", _mainDalf)
+	_idOK: _mainDalf =~ "-[0-9a-f]{64}\\.dalf$"
+	_idm: [ if _idOK {regexp.FindSubmatch("-([0-9a-f]{64})\\.dalf$", _mainDalf)}, ["", ""]][0]
 	_id:  _idm[1]
 
 	_sha: strings.Split(strings.TrimSpace(digest.stdout), " ")[0]
 
 	_want: streams[env.STREAM].package
-	_ok:   _pkg == _want
+	_ok:   _nvOK && _idOK && _pkg == _want
 
     report: cli.Print & {text: strings.Join([
 		"stream:          \(env.STREAM)",
@@ -240,6 +260,8 @@ command: verify: {
 	gate: exec.Run & {
 		$after: report
 		cmd: ["sh", "-c", [ if _ok {"exit 0"},
+			if !_nvOK {"echo '::error::\(env.DAR): META-INF/MANIFEST.MF has no readable `Name: <package>-<version>`' >&2; exit 1"},
+			if !_idOK {"echo '::error::\(env.DAR): META-INF/MANIFEST.MF has no readable `Main-Dalf` package id' >&2; exit 1"},
 			"echo '::error::\(env.DAR): package is `\(_pkg)`, expected `\(_want)`' >&2; exit 1"][0]]
 	}
 }
