@@ -28,7 +28,7 @@ published URL ever changes meaning.
 | ------ | -------- | ------ | ---------- | ------------ | ---------- | ----------- |
 | `c7-credential-v1` | General | [`0.0.1`](https://github.com/C7-Digital/public-dars/releases/download/c7-credential-v1/v0.0.1/c7-credential-v1-0.0.1.dar) | `c7-credential-v1/v0.0.1` | `c7-credential-v1` | — | `domain-verification` |
 | `c7-kyc` | General | [`0.0.1`](https://github.com/C7-Digital/public-dars/releases/download/c7-kyc/v0.0.1/c7-kyc-0.0.1.dar) | `c7-kyc/v0.0.1` | `c7-kyc` | `c7-credential-v1` | `domain-verification` |
-| `c7-lei` | General | _unreleased_ | — | `c7-lei` | — | `domain-verification` |
+| `c7-lei` | General | [`0.0.1`](https://github.com/C7-Digital/public-dars/releases/download/c7-lei/v0.0.1/c7-lei-0.0.1.dar) | `c7-lei/v0.0.1` | `c7-lei` | — | `domain-verification` |
 | `c7-unlock` | General | [`0.1.0`](https://github.com/C7-Digital/public-dars/releases/download/c7-unlock/v0.1.0/c7-unlock-0.1.0.dar) | `c7-unlock/v0.1.0` | `c7-unlock` | — | `c7lock` |
 
 #### What each stream is
