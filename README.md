@@ -19,7 +19,7 @@ published URL ever changes meaning.
 
 | Stream | Supports | Latest | Tag to pin | Daml package | Depends on | Produced by |
 | ------ | -------- | ------ | ---------- | ------------ | ---------- | ----------- |
-| `c7lock` | 7LOCK | [`0.2.6`](https://github.com/C7-Digital/public-dars/releases/download/c7lock/v0.2.6/c7lock-model-0.2.6.dar) | `c7lock/v0.2.6` | `c7lock-model` | — | `c7lock` |
+| `c7lock` | 7LOCK | [`0.2.7`](https://github.com/C7-Digital/public-dars/releases/download/c7lock/v0.2.7/c7lock-model-0.2.7.dar) | `c7lock/v0.2.7` | `c7lock-model` | — | `c7lock` |
 | `domain-verification` | 7Trust | [`0.1.0`](https://github.com/C7-Digital/public-dars/releases/download/domain-verification/v0.1.0/domain-verification-model-0.1.0.dar) | `domain-verification/v0.1.0` | `domain-verification-model` | — | `domain-verification` |
 
 #### Shared libraries
@@ -29,7 +29,7 @@ published URL ever changes meaning.
 | `c7-credential-v1` | General | [`0.0.1`](https://github.com/C7-Digital/public-dars/releases/download/c7-credential-v1/v0.0.1/c7-credential-v1-0.0.1.dar) | `c7-credential-v1/v0.0.1` | `c7-credential-v1` | — | `domain-verification` |
 | `c7-kyc` | General | [`0.0.1`](https://github.com/C7-Digital/public-dars/releases/download/c7-kyc/v0.0.1/c7-kyc-0.0.1.dar) | `c7-kyc/v0.0.1` | `c7-kyc` | `c7-credential-v1` | `domain-verification` |
 | `c7-lei` | General | [`0.0.1`](https://github.com/C7-Digital/public-dars/releases/download/c7-lei/v0.0.1/c7-lei-0.0.1.dar) | `c7-lei/v0.0.1` | `c7-lei` | — | `domain-verification` |
-| `c7-unlock` | General | [`0.1.0`](https://github.com/C7-Digital/public-dars/releases/download/c7-unlock/v0.1.0/c7-unlock-0.1.0.dar) | `c7-unlock/v0.1.0` | `c7-unlock` | — | `c7lock` |
+| `c7-unlock` | General | [`0.1.1`](https://github.com/C7-Digital/public-dars/releases/download/c7-unlock/v0.1.1/c7-unlock-0.1.1.dar) | `c7-unlock/v0.1.1` | `c7-unlock` | — | `c7lock` |
 
 #### What each stream is
 
