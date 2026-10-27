@@ -25,7 +25,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: cue-lang/setup-cue@v1.0.1
         with:
           # Match cue.mod/module.cue's language version. Unpinned, the action's
