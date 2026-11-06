@@ -11,11 +11,25 @@ name: Registry refresh
 #
 # It opens a PR rather than committing to main so a new stream's first
 # appearance in the public table is still reviewed.
+#
+# The `release` trigger keeps this pull-side: a producer still only publishes a
+# DAR, which creates a release *in this repo*; this repo reacts to its own event
+# and regenerates its own docs with its own token, still as a reviewed PR. So the
+# table tracks a new version within minutes instead of waiting for the daily cron
+# (which stays as a backstop for any run that fails transiently, e.g. an API
+# rate-limit). A release that bumps several streams at once fires several events;
+# the concurrency group coalesces them into one refresh, hence one PR.
 
 on:
   schedule:
     - cron: "23 7 * * *"
   workflow_dispatch:
+  release:
+    types: [published]
+
+concurrency:
+  group: registry-refresh
+  cancel-in-progress: true
 
 permissions:
   contents: write
