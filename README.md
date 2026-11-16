@@ -19,7 +19,7 @@ published URL ever changes meaning.
 
 | Stream | Supports | Latest | Tag to pin | Daml package | Depends on | Produced by |
 | ------ | -------- | ------ | ---------- | ------------ | ---------- | ----------- |
-| `c7lock` | 7LOCK | [`0.2.8`](https://github.com/C7-Digital/public-dars/releases/download/c7lock/v0.2.8/c7lock-model-0.2.8.dar) | `c7lock/v0.2.8` | `c7lock-model` | — | `c7lock` |
+| `c7lock` | 7LOCK | [`0.2.9`](https://github.com/C7-Digital/public-dars/releases/download/c7lock/v0.2.9/c7lock-model-0.2.9.dar) | `c7lock/v0.2.9` | `c7lock-model` | — | `c7lock` |
 | `domain-verification` | 7Trust | [`0.1.1`](https://github.com/C7-Digital/public-dars/releases/download/domain-verification/v0.1.1/domain-verification-model-0.1.1.dar) | `domain-verification/v0.1.1` | `domain-verification-model` | — | `domain-verification` |
 
 #### Shared libraries
