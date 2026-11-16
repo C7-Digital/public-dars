@@ -31,15 +31,20 @@ concurrency:
   group: registry-refresh
   cancel-in-progress: true
 
+# The org keeps GITHUB_TOKEN read-only, so the push and the PR use
+# REGISTRY_REFRESH_TOKEN: a fine-grained token for this repository only, with
+# Contents and Pull requests write. A PR it opens also starts this repo's checks,
+# which a PR opened with GITHUB_TOKEN does not.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.REGISTRY_REFRESH_TOKEN }}
       - uses: cue-lang/setup-cue@v1.0.1
         with:
           # Match cue.mod/module.cue's language version. Unpinned, the action's
@@ -53,7 +58,7 @@ jobs:
 
       - name: Open a PR if anything changed
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.REGISTRY_REFRESH_TOKEN }}
         run: |
           if git diff --quiet -- README.md; then
             echo "Registry is already current."
